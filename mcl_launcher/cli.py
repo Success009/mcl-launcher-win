@@ -1,9 +1,12 @@
 import os
 import sys
 import re
-from mcl_launcher import config
+from mcl_launcher import config, __version__
 from mcl_launcher.tui import run_tui
 from mcl_launcher.launcher import launch_game
+from mcl_launcher.updater import check_for_updates, perform_auto_update
+
+DEFAULT_POPULAR_VERSIONS = []
 
 def get_default_minecraft_dir():
     if os.name == "nt":
@@ -84,7 +87,7 @@ def get_local_versions(minecraft_dir, settings):
                     break
 
     if "explicitly_installed" not in settings or not settings["explicitly_installed"]:
-        settings["explicitly_installed"] = []
+        settings["explicitly_installed"] = list(DEFAULT_POPULAR_VERSIONS)
         versions_dir = os.path.join(minecraft_dir, "versions")
         if os.path.isdir(versions_dir):
             try:
@@ -121,6 +124,7 @@ def get_local_versions(minecraft_dir, settings):
             
     valid_versions = []
     for ver_id in settings["explicitly_installed"]:
+        # If explicitly added or in defaults, include in menu list
         if exists_on_disk(ver_id, installed_folders):
             if ver_id not in valid_versions:
                 valid_versions.append(ver_id)
@@ -148,17 +152,26 @@ def main():
     minecraft_dir = get_default_minecraft_dir()
     settings = config.load_settings()
     
+    # Auto-Update check on startup
+    has_update, latest_ver, download_url = check_for_updates()
+    if has_update and download_url:
+        print(f"\033[1;33m[UPDATE AVAILABLE] New version v{latest_ver} is available! (Current: v{__version__})\033[0m")
+        print("Updating launcher...")
+        updated = perform_auto_update(download_url)
+        if updated:
+            os.execv(sys.executable, [sys.executable] + sys.argv)
+            
     if len(sys.argv) > 1:
         args = sys.argv[1:]
         local_versions = get_local_versions(minecraft_dir, settings)
         
         if args[0] in ("-h", "--help", "help"):
-            print("Minecraft CLI Launcher (mcl-win)")
+            print(f"Minecraft CLI Launcher v{__version__} (mcl-win)")
             print("Usage:")
-            print("  mcl                   - Start the interactive version selector (Arrow Keys!)")
-            print("  mcl <version>         - Launch a specific local version (e.g. mcl \"fabric:1.20.1\")")
-            print("  mcl <query>           - Fuzzy-launch a matched version (e.g. mcl fabric)")
-            print("  mcl -u <username>     - Set username for launcher")
+            print("  mcl                   - Start interactive launcher (Arrow Keys!)")
+            print("  mcl <version>         - Launch specific version (e.g. mcl \"fabric:1.20.1\")")
+            print("  mcl <query>           - Fuzzy launch version (e.g. mcl fabric)")
+            print("  mcl -u <username>     - Set username")
             return
             
         if args[0] == "-u" and len(args) > 2:
@@ -178,10 +191,10 @@ def main():
         query = " ".join(args)
         best_match = fuzzy_find_version(query, local_versions)
         if best_match:
-            print(f"[SMART-MATCH] Fuzzy-matched query \"{query}\" to installed version: \"{best_match}\"")
+            print(f"[SMART-MATCH] Fuzzy-matched query \"{query}\" to version: \"{best_match}\"")
             launch_game(best_match, settings, minecraft_dir, mode="foreground")
         else:
-            print(f"[REMOTE] Version \"{query}\" not found locally. Preparing download...")
+            print(f"[REMOTE] Version \"{query}\" not found. Preparing download...")
             if "explicitly_installed" not in settings:
                 settings["explicitly_installed"] = []
             if query not in settings["explicitly_installed"]:
@@ -203,6 +216,15 @@ def main():
                 settings["explicitly_installed"].append(selected_version)
             settings["last_played_version"] = selected_version
             config.save_settings(settings)
+            
+            # If selected version is not yet installed on disk, auto-install first!
+            versions_dir = os.path.join(minecraft_dir, "versions")
+            installed_folders = os.listdir(versions_dir) if os.path.exists(versions_dir) else []
+            if not exists_on_disk(selected_version, installed_folders):
+                from mcl_launcher.launcher import install_game_version
+                print(f"[AUTO-INSTALL] Initializing first-time download for {selected_version}...")
+                install_game_version(selected_version, settings, minecraft_dir)
+                
             launch_game(selected_version, settings, minecraft_dir, mode=mode)
         break
 
