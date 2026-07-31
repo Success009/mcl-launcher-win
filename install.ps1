@@ -79,7 +79,9 @@ if (-not $pythonExe) {
     $targetDir = "$env:LocalAppData\Programs\Python\Python312"
     $proc = Start-Process -FilePath $installerPath -ArgumentList "/quiet PrependPath=1 Include_pip=1 TargetDir=`"$targetDir`"" -PassThru -Wait
     
-    Write-Log "[Exec] Installer process exit code: $($proc.ExitCode)" ($if ($proc.ExitCode -eq 0) { "Green" } else { "Red" })
+    $exitColor = "Green"
+    if ($proc.ExitCode -ne 0) { $exitColor = "Red" }
+    Write-Log "[Exec] Installer process exit code: $($proc.ExitCode)" $exitColor
     Remove-Item -Path $installerPath -ErrorAction SilentlyContinue
 
     # Refresh PATH session variables
