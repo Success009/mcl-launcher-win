@@ -10,8 +10,8 @@ function Write-Log($msg, $color="Cyan") {
     Write-Host "[$timestamp] $msg" -ForegroundColor $color
 }
 
-# 1. Target Installation Directory
-$TargetDir = "$env:USERPROFILE\.mcl-launcher"
+# 1. Target Installation Directory (AppData\Local\mcl-launcher)
+$TargetDir = Join-Path $env:LOCALAPPDATA "mcl-launcher"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if (-not $ScriptDir) { $ScriptDir = Get-Location }
 

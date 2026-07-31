@@ -7,7 +7,7 @@ echo ==================================================
 echo.
 
 set SCRIPT_DIR=%~dp0
-set TARGET_DIR=%USERPROFILE%\.mcl-launcher
+set TARGET_DIR=%LOCALAPPDATA%\mcl-launcher
 
 if not "%SCRIPT_DIR:~0,-1%"=="%TARGET_DIR%" (
     echo [INFO] Installing launcher files to %TARGET_DIR%...
